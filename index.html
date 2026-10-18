@@ -138,6 +138,13 @@ html:lang(hy) .modal-head h2{font-size:22px}
 .declTile.has .declName{padding-right:34px}
 #bidMinus,#bidPlus,#rawMinus,#rawPlus{touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
 #bidMinus.holding,#bidPlus.holding,#rawMinus.holding,#rawPlus.holding{transform:scale(.92);filter:brightness(1.15)}
+
+/* no dark box behind the team switch; it scrolls with the content */
+.declTeams{position:static;background:none;padding:2px 0 10px}
+button{-webkit-appearance:none;appearance:none}
+/* thinner step indicators */
+.stepdots{gap:5px;margin:4px 0 8px}
+.stepdots i{height:3px;border-radius:2px;background:#ffffff1f}
 </style>
 </head>
 <body>
@@ -187,13 +194,22 @@ function unlockAudio(){
  }catch(e){}
 }
 document.addEventListener('pointerdown',unlockAudio,{passive:true});
-function haptic(pattern=10){if(navigator.vibrate)navigator.vibrate(pattern)}
+/* Haptics: Android uses the Vibration API. iOS Safari has no Vibration API, but toggling a native
+   <input type=checkbox switch> (iOS 18+) plays the system haptic tick, so we tap a hidden one. */
+const canVibrate=typeof navigator.vibrate==='function';
+let iosHapticLabel=null;
+function iosTick(){try{if(!iosHapticLabel){let inp=document.createElement('input');inp.type='checkbox';inp.setAttribute('switch','');inp.id='iosHaptic';
+ iosHapticLabel=document.createElement('label');iosHapticLabel.htmlFor='iosHaptic';iosHapticLabel.setAttribute('aria-hidden','true');
+ iosHapticLabel.style.cssText='position:fixed;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none;left:-99px;top:0';
+ iosHapticLabel.appendChild(inp);document.body.appendChild(iosHapticLabel)}iosHapticLabel.click()}catch(e){}}
+function haptic(pattern=10){if(canVibrate){navigator.vibrate(pattern);return}
+ let pulses=Array.isArray(pattern)?Math.ceil(pattern.length/2):1;for(let k=0;k<Math.min(pulses,3);k++)k?setTimeout(iosTick,k*110):iosTick()}
 let lastSafeSoundAt=0;
 function safeClick(){haptic(12);let now=performance.now();if(now-lastSafeSoundAt<28)return;lastSafeSoundAt=now;if(!sound)return;unlockAudio();if(!audioCtx||audioCtx.state!=='running')return;let len=Math.floor(audioCtx.sampleRate*.018),buf=audioCtx.createBuffer(1,len,audioCtx.sampleRate),data=buf.getChannelData(0);for(let i=0;i<len;i++)data[i]=(Math.random()*2-1)*Math.pow(1-i/len,5);let src=audioCtx.createBufferSource(),filter=audioCtx.createBiquadFilter(),gain=audioCtx.createGain();filter.type='bandpass';filter.frequency.value=2100;filter.Q.value=1.8;gain.gain.value=.22;src.buffer=buf;src.connect(filter);filter.connect(gain);gain.connect(audioMaster);src.start()}
 function buzz(kind=25){
  const profiles={tap:{v:18,notes:[[620,.20,.05]]},step:{v:[15,22],notes:[[440,.18,.05],[700,.20,.07]]},score:{v:[25,30,50],notes:[[392,.18,.08],[523,.20,.09],[784,.22,.14]]},warn:{v:[55,30,70],notes:[[185,.22,.14],[145,.20,.18]]},victory:{v:[45,25,45,25,90],notes:[[523,.18,.1],[659,.20,.11],[784,.22,.18]]}};
  let pr=typeof kind==='string'?(profiles[kind]||profiles.tap):{v:kind,notes:[[620,.18,.06]]};
- if(navigator.vibrate)navigator.vibrate(pr.v);if(!sound)return;unlockAudio();if(!audioCtx||audioCtx.state!=='running')return;
+ if(true)haptic(pr.v);if(!sound)return;unlockAudio();if(!audioCtx||audioCtx.state!=='running')return;
  let t=audioCtx.currentTime+.01;pr.notes.forEach((n,i)=>{let o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type=i%2?'triangle':'sine';o.frequency.setValueAtTime(n[0],t+i*.085);g.gain.setValueAtTime(n[1],t+i*.085);g.gain.exponentialRampToValueAtTime(.001,t+i*.085+n[2]);o.connect(g);g.connect(audioMaster);o.start(t+i*.085);o.stop(t+i*.085+n[2]+.02)})
 }
 function show(id){document.body.dataset.view=id;['menuView','setupView','gameView'].forEach(x=>$('#'+x).classList.toggle('hidden',x!==id));window.scrollTo(0,0)}
